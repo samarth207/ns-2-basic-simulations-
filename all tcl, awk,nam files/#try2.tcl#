@@ -1,0 +1,125 @@
+# Create a simulator object
+set ns [new Simulator]
+
+# Define different colors
+# for data flows (for NAM)
+$ns color 1 Blue
+$ns color 2 Red
+
+# Open the NAM trace file
+set nf [open out.nam w]
+$ns namtrace-all $nf
+
+set tracefile [open try.tr w]
+$ns trace-all $tracefile
+
+# Define a 'finish' procedure
+proc finish {} {
+	global ns nf
+	$ns flush-trace
+	
+	# Close the NAM trace file
+	close $nf
+	
+	# Execute NAM on the trace file
+	#exec nam out.nam &
+	exit 0
+}
+
+# Create four nodes
+set n0 [$ns node]
+set n1 [$ns node]
+set n2 [$ns node]
+set n3 [$ns node]
+set n4 [$ns node]
+set n5 [$ns node]
+set n6 [$ns node]
+set n7 [$ns node]
+
+
+
+# Create links between the nodes
+$ns duplex-link $n0 $n3 2Mb 10ms DropTail
+$ns duplex-link $n1 $n3 2Mb 10ms DropTail
+$ns duplex-link $n2 $n3 2Mb 10ms DropTail
+$ns duplex-link $n3 $n4 0.1mb 12ms DropTail
+$ns duplex-link $n4 $n5 10mb  2ms DropTail
+$ns duplex-link $n5 $n6 2Mb 10ms DropTail
+$ns duplex-link $n5 $n7 2Mb 10ms DropTail
+
+# Set Queue Size of link (n2-n3) to 10
+$ns queue-limit $n3 $n4 2
+$ns queue-limit $n4 $n5 2
+
+
+# Give node position (for NAM)
+$ns duplex-link-op $n0 $n3 orient right-down
+$ns duplex-link-op $n1 $n3 orient right
+$ns duplex-link-op $n2 $n3 orient right-up
+$ns duplex-link-op $n3 $n4 orient right
+$ns duplex-link-op $n4 $n5 orient right
+$ns duplex-link-op $n5 $n6 orient right-up
+$ns duplex-link-op $n5 $n7 orient right-down
+
+
+# Monitor the queue for link (n2-n3). (for NAM)
+#$ns duplex-link-op $n2 $n3 queuePos 0.5
+
+
+# Setup a TCP connection
+set tcp [new Agent/TCP]
+$tcp set class_ 2
+$ns attach-agent $n1 $tcp
+
+set sink [new Agent/TCPSink]
+$ns attach-agent $n6 $sink
+$ns connect $tcp $sink
+$tcp set fid_ 1
+
+# Setup a FTP over TCP connection
+set ftp [new Application/FTP]
+$ftp attach-agent $tcp
+$ftp set type_ FTP
+$ftp set packet_size_ 10000
+$ftp set rate_ 100mb
+$ftp set random_ false
+
+# Setup a TCP connection
+set tcp2 [new Agent/TCP]
+$tcp2 set class_ 2
+$ns attach-agent $n2 $tcp2
+
+set sink2 [new Agent/TCPSink]
+$ns attach-agent $n7 $sink2
+$ns connect $tcp2 $sink2
+$tcp2 set fid_ 1
+
+# Setup a FTP over TCP connection
+set ftp2 [new Application/FTP]
+$ftp2 attach-agent $tcp2
+$ftp2 set type_ FTP
+$ftp2 set packet_size_ 10000000000
+$ftp2 set rate_ 100000mb
+$ftp2 set random_ false
+
+
+
+
+# Schedule events for the CBR and FTP agents
+$ns at 0.1 "$ftp start"
+$ns at 18.5 "$ftp stop"
+$ns at 2.0 "$ftp2 start"
+$ns at 20.0 "$ftp2 stop"
+
+
+
+
+# Call the finish procedure after
+# 5 seconds of simulation time
+$ns at 22.0 "finish"
+
+
+
+# Run the simulation
+$ns run
+
